@@ -1,0 +1,102 @@
+#+STARTUP: inlineimages:png
+#+LATEX_HEADER: \usepackage{ulem}
+#+LATEX_HEADER: \usepackage{ctex}
+#+LaTeX_HEADER: \sectionfont{\normalfont\scshape}
+#+LaTeX_HEADER: \subsectionfont{\normalfont\itshape}
+#+AUTHOR: whiothes
+#+title: The Linux Programming Interface
+* TODO The Linux Programming Interface [0%]
+** TODO Chapter 63: Alternative I/O Models [0/0]
+*** 63.4 The ~epoll~ API
+    primary advantages:
+    * much better than ~select~ and ~poll~ when monitoring large numbers of file descriptors
+    * ~epoll~ permits either level-triggered or edge-triggered notification.
+
+
+    ~epoll~ has some advantages over signal-driven I/O:
+    * avoid complexities of signal handling.
+    * greater flexibility in specifying what kind of monitoring we want to perform.
+
+
+    *The ~epoll~ API is Linux-specific (kqueue on MacOS), and is new in Linux 2.6*
+
+
+    /epoll instance/, the central data structure, is a handle for kernel data structures that serve two purposes:
+    * recording a list of file descriptors that this process has declared an interest in monitoring - the /interest list/.
+    * maintaining a list of file descriptors that are ready for I/O - the /ready list/.
+
+      *The membership of the ready list is a /subset/ of the interest list.*
+
+
+    The /epoll/ API consists of three system calls.
+    * The ~epoll_create()~ system call creates an /epoll/ instance and returns a file descriptor referring to the instance.
+    * The ~epoll_ctl()~ system call manipulates the interest list associated with an /epoll/ instance.
+    * The ~epoll_wait()~ system call returns items from the ready list associated with an /epoll/ instance.
+**** 63.4.1 Creating an /epoll/ instance: ~epoll_create()~
+     #+begin_src c
+       #include <sys/epoll.h>
+
+
+       /**
+        ,* @brief      create a new epoll instance
+        ,*
+        ,* @param      size     specifies the number of file descriptors that we expect to monitor
+        ,*
+        ,* @return     file descriptor on success, or -1 on error
+        ,*/
+       int epoll_create(int size);
+     #+end_src
+**** 63.4.2 Modifying the /epoll/ Interest List: ~epoll_ctrl()~
+     #+begin_src c
+       #include <sys/epoll.h>
+
+       /**
+        ,* @brief      modifies the interest list of the /epoll/ instance
+        ,*
+        ,* @details    detailed description
+        ,*
+        ,* @param      epfd     refered by
+        ,* @param      op       EPOLL_CTRL_ADD, EPOLL_CTL_MOD, EPOLL_CTL_DEL
+        ,* @param      ev       man epoll_ctl for details
+        ,*
+        ,* @return     0 on success, -1 on error
+        ,*/
+       int epoll_ctl(int epfd, int op, int fd, struct epoll_event *ev);
+     #+end_src
+
+     #+caption: Using ~epoll_create()~ and ~epoll_ctl()~
+     #+begin_src c
+       int epfd;
+       struct epoll_event ev;
+
+       epfd = epoll_create(5);
+       if (epfd == -1) {
+           err_sys("epoll_create");
+       }
+
+       ev.data.fd = fd;
+       ev.events = EPOLLIN;
+       if (epoll_ctl(epfd, EPOLL_CTL_ADD, fd, ev) == -1) {
+           err_sys("epoll_ctl");
+       }
+     #+end_src
+**** 63.4.3 Waiting for Events: ~epoll_wait()~
+     #+begin_src c
+       #include <sys/epoll.h>
+
+       /**
+        ,* @brief      returns info about ready file descriptors
+        ,*
+        ,* @details    from the epoll instance refered to by the file descriptor epfd.
+        ,*
+        ,* @return     number of ready fd if OK, 0 on timeout, -1 on error.
+        ,*/
+       int epoll_wait(int epfd, struct epoll_event *evlist, int maxevents, int timeout);
+     #+end_src
+
+     * The =EPOLLONESHOT= flag
+       For specify to be notified only once about a particular file descriptor. Reenable by using the ~epoll_ctl()~ =EPOLL_CTL_MOD= operation.
+
+     * Example program
+       #+caption: Listing 63-5: Using the epoll API
+       #+include: "Chapter63/epoll_input.c" src c
